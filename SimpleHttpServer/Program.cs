@@ -7,6 +7,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Logs;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Exporter;
+using System.Diagnostics.Metrics;
 
 class Program
 {
@@ -59,15 +60,66 @@ class Program
 
         Console.WriteLine("Tracing configured...");
 
+        // ✅ Configure Metrics (only if "MetricsExporter" is set to "otlp")
+        if (metricsExporter == "otlp")
+        {
+            using var meterProvider = Sdk.CreateMeterProviderBuilder()
+                .SetResourceBuilder(ResourceBuilder.CreateDefault()
+                    .AddAttributes(ParseResourceAttributes(resourceAttributes)))
+                .AddMeter("SimpleHttpServer")
+                .AddOtlpExporter(options =>
+                {
+                    options.Endpoint = new Uri(otlpEndpoint);
+                    if (!string.IsNullOrEmpty(otlpHeaders))
+                    {
+                        options.Headers = otlpHeaders;
+                    }
+                    options.Protocol = exportProtocol;
+                })
+                .Build();
+        }
+
+        // ✅ Configure Logs (only if "LogsExporter" is set to "otlp")
+        if (logsExporter == "otlp")
+        {
+            using var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.AddOpenTelemetry(options =>
+                {
+                    options.SetResourceBuilder(ResourceBuilder.CreateDefault()
+                        .AddAttributes(ParseResourceAttributes(resourceAttributes)));
+
+                    options.AddOtlpExporter(otlpOptions =>
+                    {
+                        otlpOptions.Endpoint = new Uri(otlpEndpoint);
+                        if (!string.IsNullOrEmpty(otlpHeaders))
+                        {
+                            otlpOptions.Headers = otlpHeaders;
+                        }
+                        otlpOptions.Protocol = exportProtocol;
+                    });
+                });
+            });
+
+            var logger = loggerFactory.CreateLogger<Program>();
+
+            Console.WriteLine("Logging configured.");
+            SimulateHttpRequest(logger);
+        }
+        else
+        {
+            Console.WriteLine("Logging is disabled in appsettings.json.");
+        }
+
         // Simulate HTTP Requests
         while (true)
         {
-            SimulateHttpRequest();
+            SimulateHttpRequest(null); // Pass logger only if logs are enabled
             System.Threading.Thread.Sleep(5000);
         }
     }
 
-    static void SimulateHttpRequest()
+    static void SimulateHttpRequest(ILogger? logger)
     {
         using (var activity = ActivitySource.StartActivity("HttpRequest"))
         {
@@ -75,6 +127,16 @@ class Program
             activity?.SetTag("http.url", "http://localhost:8080");
 
             Console.WriteLine("HTTP request simulated and traced.");
+
+            // Only log if logger is enabled
+            logger?.LogInformation("Handled HTTP GET request to /");
+
+            // Simulating a metric
+            var meter = new Meter("SimpleHttpServer");
+            var counter = meter.CreateCounter<long>("http_requests_total");
+
+            // Fix: Pass KeyValuePairs as an array
+            counter.Add(1, new KeyValuePair<string, object?>[] { new("http.method", "GET") });
         }
     }
 
