@@ -6,6 +6,7 @@ using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Logs;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry.Exporter;
 
 class Program
 {
@@ -32,7 +33,15 @@ class Program
 
         Console.WriteLine("Configuring OpenTelemetry for Elastic APM...");
 
-        // Set up OpenTelemetry Tracing
+        // Fix: Convert Protocol String to Enum
+        OtlpExportProtocol exportProtocol = otlpProtocol switch
+        {
+            "grpc" => OtlpExportProtocol.Grpc,
+            "http/protobuf" => OtlpExportProtocol.HttpProtobuf,
+            _ => throw new ArgumentException($"Invalid OTLP protocol: {otlpProtocol}")
+        };
+
+        // Configure OpenTelemetry for Tracing
         using var tracerProvider = Sdk.CreateTracerProviderBuilder()
             .SetResourceBuilder(ResourceBuilder.CreateDefault()
                 .AddAttributes(ParseResourceAttributes(resourceAttributes)))
@@ -44,13 +53,13 @@ class Program
                 {
                     options.Headers = otlpHeaders;
                 }
-                options.Protocol = Enum.Parse<OpenTelemetry.Exporter.OtlpExportProtocol>(otlpProtocol, true);
+                options.Protocol = exportProtocol;
             })
             .Build();
 
         Console.WriteLine("Tracing configured...");
 
-        // Simulating HTTP requests
+        // Simulate HTTP Requests
         while (true)
         {
             SimulateHttpRequest();
