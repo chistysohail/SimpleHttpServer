@@ -30,3 +30,65 @@ ENV OTEL_LOGS_EXPORTER="otlp"
 
 # Start the application
 CMD ["dotnet", "SimpleHttpServer.dll"]
+
+
+
+
+
+/////////////////////////////////sample-trace.json to pb//////////////////////
+////otel-collector --config=config.yaml --exporter=otlp-file --file=sample-trace.pb < sample-trace.json
+////protoc --encode=opentelemetry.proto.trace.v1.ResourceSpans sample-trace.json > sample-trace.pb
+
+////Test APM 
+// curl -X POST "http://elasticsearch.company.com:8200/v1/traces" \
+// -H "Content-Type: application/x-protobuf" \
+// -H "Authorization: Bearer your_apm_api_key" \
+// --data-binary @sample-trace.pb
+
+////Test APM 
+// curl -X POST "http://elasticsearch.company.com:8200/v1/traces" \
+// -H "Content-Type: application/json" \
+// -H "Authorization: Bearer your_apm_api_key" \
+// --data @sample-trace.json
+
+
+////test OpenTelemetry
+// curl -X POST "http://elasticsearch.company.com:8200/v1/traces" \
+// -H "Content-Type: application/x-protobuf" \
+// -H "Authorization: Bearer your_apm_api_key" \
+// --data-binary @sample-trace.pb
+
+/////////////////////////////////sample-trace.json 
+// {
+//   "resourceSpans": [
+//     {
+//       "resource": {
+//         "attributes": [
+//           {
+//             "key": "service.name",
+//             "value": {
+//               "stringValue": "Dotnet6App"
+//             }
+//           }
+//         ]
+//       },
+//       "instrumentationLibrarySpans": [
+//         {
+//           "spans": [
+//             {
+//               "traceId": "abc1234567890abcdef1234567890abc",
+//               "spanId": "1234567890abcdef",
+//               "name": "Test Span",
+//               "kind": 1,
+//               "startTimeUnixNano": "1690000000000000000",
+//               "endTimeUnixNano": "1690000001000000000",
+//               "status": {
+//                 "code": 0
+//               }
+//             }
+//           ]
+//         }
+//       ]
+//     }
+//   ]
+// }
